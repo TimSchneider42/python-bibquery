@@ -133,5 +133,7 @@ setup(name="bibquery",
           "selenium == 4.7.2",
           "webdriver-manager == 3.8.5"
       ],
+      long_description=long_description,
+      long_description_content_type='text/markdown',
       scripts=["bin/bibquery"]
       )
