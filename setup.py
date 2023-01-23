@@ -11,6 +11,8 @@ from tempfile import TemporaryDirectory
 from urllib.request import urlretrieve
 import zipfile
 
+this_directory = Path(__file__).parent
+long_description = (this_directory / "README.md").read_text()
 
 class build_py(_build_py):
     def run(self):
@@ -130,5 +132,6 @@ setup(name="bibquery",
       install_requires=[
           "selenium == 4.7.2",
           "webdriver-manager == 3.8.5"
-      ]
+      ],
+      scripts=["bin/bibquery"]
       )
