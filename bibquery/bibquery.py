@@ -16,6 +16,7 @@ class BibQuery:
     def __init__(self):
         self.__browser = None
         self.__res_path = Path(__file__).parent / "res"
+        self.__cache_path = Path("~").expanduser() / ".cache" / "bibquery"
         with (self.__res_path / "urlSpecificAdjusterList.json").open() as f:
             self.__url_specific_adjusters = json.load(f)
 
@@ -29,7 +30,9 @@ class BibQuery:
     def initialize(self):
         options = Options()
         options.headless = True
-        self.__browser = webdriver.Firefox(executable_path=GeckoDriverManager().install(), options=options)
+        self.__cache_path.mkdir(exist_ok=True, parents=True)
+        self.__browser = webdriver.Firefox(executable_path=GeckoDriverManager(
+            path=str(self.__cache_path)).install(), options=options)
         self.__browser.install_addon(self.__res_path / "bibitnow_patched.xpi", temporary=True)
 
     def close(self):
