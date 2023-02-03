@@ -1,20 +1,31 @@
 import json
 import re
 import time
+import traceback
 from pathlib import Path
+from typing import Optional
+
 from selenium import webdriver
 from urllib.parse import urlparse
+import logging
 
 from selenium.webdriver.common.by import By
 from selenium.webdriver.firefox.options import Options
+from selenium.webdriver.remote.webdriver import WebDriver
 from selenium.webdriver.support.expected_conditions import presence_of_element_located
 from selenium.webdriver.support.wait import WebDriverWait
 from webdriver_manager.firefox import GeckoDriverManager
 
+logger = logging.getLogger("BibQuery")
+
+
+class BibQueryException(Exception):
+    pass
+
 
 class BibQuery:
     def __init__(self):
-        self.__browser = None
+        self.__browser: Optional[WebDriver] = None
         self.__res_path = Path(__file__).parent / "res"
         self.__cache_path = Path("~").expanduser() / ".cache" / "bibquery"
         with (self.__res_path / "urlSpecificAdjusterList.json").open() as f:
@@ -38,7 +49,37 @@ class BibQuery:
     def close(self):
         self.__browser.close()
 
+    def __wait_and_get(self, driver: WebDriver, by: str, value: Optional[str] = None, timeout: float = 60.0):
+        WebDriverWait(driver, timeout).until(presence_of_element_located((by, value)))
+        return driver.find_element(by, value)
+
     def query(self, url: str) -> str:
+        """
+        Tries to load the BibTeX of the paper behind the URL first using the query_bibitnow method and if that fails,
+        falling back to query_google_scholar.
+        :param url: URL to get the BibTeX for.
+        :return: A string containing the BibTeX for paper in the given URL.
+        """
+        try:
+            return self.query_bibitnow(url)
+        except:
+            logger.debug(f"Failed to obtain BibTeX using BibItNow with the following "
+                         f"exception:\n{traceback.format_exc()}")
+            try:
+                logger.debug(f"Trying with Google Scholar...")
+                return self.query_google_scholar(url)
+            except:
+                logger.debug(f"Failed to obtain BibTeX using Google Scholar with the following "
+                             f"exception:\n{traceback.format_exc()}")
+                raise BibQueryException(f"Failed to load BibTeX for URL \"{url}\"")
+
+    def query_bibitnow(self, url: str) -> str:
+        """
+        Tries to load the BibTeX of the paper behind the URL using the BibItNow! Firefox plugin
+        (https://github.com/Langenscheiss/bibitnow)
+        :param url: URL to get the BibTeX for.
+        :return: A string containing the BibTeX for paper in the given URL.
+        """
         if self.__browser is None:
             raise ValueError("BibQuery has not been initialized or was already closed.")
 
@@ -93,9 +134,7 @@ class BibQuery:
                 self.__browser.get(fallback_url)
 
         self.__browser.switch_to.frame("bibquery-popup")
-        WebDriverWait(self.__browser, 60.0).until(
-            presence_of_element_located((By.XPATH, "//textarea[@id='textToCopy']")))
-        result_element = self.__browser.find_element(By.XPATH, "//textarea[@id='textToCopy']")
+        result_element = self.__wait_and_get(self.__browser, By.XPATH, "//textarea[@id='textToCopy']")
 
         bibtex_result = None
         start_time = time.time()
@@ -109,3 +148,23 @@ class BibQuery:
             raise ValueError(f"BibItNow returned unexpected string \"{bibtex_result}\"")
 
         return bibtex_result
+
+    def query_google_scholar(self, url: str) -> str:
+        """
+        Tries to load the BibTeX of the paper behind the URL using Google Scholar.
+        :param url: URL to get the BibTeX for.
+        :return: A string containing the BibTeX for paper in the given URL.
+        """
+        if self.__browser is None:
+            raise ValueError("BibQuery has not been initialized or was already closed.")
+
+        self.__browser.get("https://scholar.google.com/?")
+        self.__browser.find_element(By.NAME, "q").send_keys(url)
+        self.__browser.find_element(By.NAME, "btnG").click()
+
+        results_element = self.__wait_and_get(self.__browser, By.XPATH, "//div[@id='gs_res_ccl_mid']")
+        results_element.find_element(By.XPATH, "//a[@aria-controls='gs_cit']").click()
+        link = self.__wait_and_get(self.__browser, By.XPATH, "//a[contains(text(), 'BibTeX')]").get_attribute("href")
+
+        self.__browser.get(link)
+        return self.__browser.find_element(By.XPATH, "/html/body/pre").text
