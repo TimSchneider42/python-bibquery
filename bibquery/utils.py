@@ -1,9 +1,8 @@
 import logging
-import sys
 import traceback
 from typing import Iterable
 
-from .bibquery import BibQuery
+from .bibquery import BibQuery, BibQueryException
 
 logger = logging.getLogger("BibQuery")
 
@@ -19,7 +18,7 @@ def query_batch(urls: Iterable[str]):
         for url in urls:
             try:
                 results[url] = bq.query(url)
-            except:
+            except BibQueryException:
                 logger.error(f"Encountered error when trying to obtain BibTeX entry of {url}:\n")
                 traceback.print_exc()
     return results
