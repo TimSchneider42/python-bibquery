@@ -24,11 +24,16 @@ class BibQueryException(Exception):
     pass
 
 
+class CaptchaEncounteredException(Exception):
+    pass
+
+
 class BibQuery:
     def __init__(self):
         self.__browser: Optional[WebDriver] = None
         self.__res_path = Path(__file__).parent / "res"
         self.__cache_path = Path("~").expanduser() / ".cache" / "bibquery"
+        self.__cookie_path = self.__cache_path / "google_cookies.json"
         with (self.__res_path / "urlSpecificAdjusterList.json").open() as f:
             self.__url_specific_adjusters = json.load(f)
 
@@ -46,6 +51,13 @@ class BibQuery:
         self.__browser = webdriver.Firefox(executable_path=GeckoDriverManager(
             path=str(self.__cache_path)).install(), options=options, log_path=os.devnull)
         self.__browser.install_addon(self.__res_path / "bibitnow_patched.xpi", temporary=True)
+        if self.__cookie_path.exists():
+            with self.__cookie_path.open() as f:
+                cookies = json.load(f)
+            self.__browser.get("https://scholar.google.com/")
+            self.__browser.delete_all_cookies()
+            for cookie in cookies:
+                self.__browser.add_cookie(cookie)
 
     def close(self):
         self.__browser.close()
@@ -159,12 +171,50 @@ class BibQuery:
         if self.__browser is None:
             raise ValueError("BibQuery has not been initialized or was already closed.")
 
-        self.__browser.get("https://scholar.google.com/?")
-        self.__browser.find_element(By.NAME, "q").send_keys(url)
-        self.__browser.find_element(By.NAME, "btnG").click()
+        try:
+            return self.__query_google_scholar(url, self.__browser)
+        except CaptchaEncounteredException:
+            logger.info("Encountered Captcha. Prompting user to solve it.")
+            browser = webdriver.Firefox(executable_path=GeckoDriverManager(
+                path=str(self.__cache_path), cache_valid_range=14).install(), log_path=os.devnull)
+            try:
+                return_value = self.__query_google_scholar(url, browser, cancel_on_captcha=False)
 
-        self.__browser.find_element(By.XPATH, "//a[@aria-controls='gs_cit']").click()
-        link = self.__wait_and_get(self.__browser, By.XPATH, "//a[contains(text(), 'BibTeX')]").get_attribute("href")
+                # This seems to be the only way of obtaining and setting cookies for www.google.com
+                browser.get("https://scholar.google.com/")
+                cookies = browser.get_cookies()
+                with self.__cookie_path.open("w") as f:
+                    json.dump(cookies, f)
+                self.__browser.get("https://scholar.google.com/")
+                self.__browser.delete_all_cookies()
+                for cookie in cookies:
+                    self.__browser.add_cookie(cookie)
+            finally:
+                browser.close()
+            return return_value
 
-        self.__browser.get(link)
-        return self.__browser.find_element(By.XPATH, "/html/body/pre").text
+    def __query_google_scholar(self, url: str, browser: WebDriver, cancel_on_captcha: bool = True) -> str:
+        browser.get("https://scholar.google.com/")
+        browser.find_element(By.NAME, "q").send_keys(url)
+        browser.find_element(By.NAME, "btnG").click()
+
+        start_time = time.time()
+        citation_element = None
+        while (time.time() - start_time < 60.0 or not cancel_on_captcha) and citation_element is None:
+            citation_elements = browser.find_elements(By.XPATH, "//a[@aria-controls='gs_cit']")
+            if len(citation_elements) > 0:
+                citation_element = citation_elements[0]
+            else:
+                recaptcha_element_present = \
+                    len(browser.find_elements(By.XPATH, "//iframe[@title='reCAPTCHA']")) > 0
+                if recaptcha_element_present and cancel_on_captcha:
+                    raise CaptchaEncounteredException("Encountered Captcha when querying Google Scholar.")
+                time.sleep(0.1)
+        if citation_element is None:
+            raise TimeoutError("Timed out waiting for the citation link to appear on Google Scholar.")
+        citation_element.click()
+
+        link = self.__wait_and_get(browser, By.XPATH, "//a[contains(text(), 'BibTeX')]").get_attribute("href")
+
+        browser.get(link)
+        return browser.find_element(By.XPATH, "/html/body/pre").text
