@@ -3,6 +3,7 @@ import os
 import re
 import time
 import traceback
+from datetime import datetime, timedelta
 from pathlib import Path
 from typing import Optional
 
@@ -51,8 +52,20 @@ class BibQuery:
         options = Options()
         options.headless = True
         self.__cache_path.mkdir(exist_ok=True, parents=True)
-        self.__browser = webdriver.Firefox(executable_path=GeckoDriverManager(
-            path=str(self.__cache_path)).install(), options=options, log_path=os.devnull)
+
+        # Workaround for the GitHub rate limit issue (https://github.com/SergeyPirogov/webdriver_manager/issues/442)
+        with (self.__cache_path / ".wdm" / "drivers.json").open() as f:
+            drivers_dict = json.load(f)
+        max_cache_age = timedelta(days=1)
+        driver_filename = None
+        for name, properties in drivers_dict.items():
+            timestamp = datetime.strptime(properties["timestamp"], "%d/%m/%Y")
+            if timestamp - datetime.today() < max_cache_age:
+                driver_filename = properties["binary_path"]
+        if driver_filename is None:
+            driver_filename = GeckoDriverManager(path=str(self.__cache_path)).install()
+
+        self.__browser = webdriver.Firefox(executable_path=driver_filename, options=options, log_path=os.devnull)
         self.__browser.install_addon(self.__res_path / "bibitnow_patched.xpi", temporary=True)
         if self.__cookie_path.exists():
             with self.__cookie_path.open() as f:
