@@ -1,5 +1,5 @@
 # BibQuery
-A tool for creating BibTeX entries from links using BibItNow (https://github.com/Langenscheiss/bibitnow) and Selenium.
+A tool for creating BibTeX entries from links using BibItNow (https://github.com/Langenscheiss/bibitnow), Google Scholar and Selenium.
 
 ## Installation
 This library can be installed via pip:
