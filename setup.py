@@ -121,9 +121,9 @@ class build_py(_build_py):
 
 
 setup(name="bibquery",
-      version="1.0",
-      description="Creates BibTeX entries from links using BibItNow (https://github.com/Langenscheiss/bibitnow) and "
-                  "Selenium.",
+      version="1.1",
+      description="Creates BibTeX entries from links using BibItNow (https://github.com/Langenscheiss/bibitnow), "
+                  "Google Scholar and Selenium.",
       author="Tim Schneider",
       author_email="tim@robot-learning.de",
       url="https://github.com/TimSchneider42/python-bibquery",
