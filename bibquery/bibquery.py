@@ -1,4 +1,5 @@
 import json
+import os
 import re
 import time
 import traceback
@@ -43,7 +44,7 @@ class BibQuery:
         options.headless = True
         self.__cache_path.mkdir(exist_ok=True, parents=True)
         self.__browser = webdriver.Firefox(executable_path=GeckoDriverManager(
-            path=str(self.__cache_path)).install(), options=options)
+            path=str(self.__cache_path)).install(), options=options, log_path=os.devnull)
         self.__browser.install_addon(self.__res_path / "bibitnow_patched.xpi", temporary=True)
 
     def close(self):
