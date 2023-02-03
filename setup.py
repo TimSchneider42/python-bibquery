@@ -2,7 +2,6 @@
 import json
 import re
 import shutil
-import time
 from distutils.command.build_py import build_py as _build_py
 from distutils.core import setup
 from itertools import chain
@@ -13,6 +12,7 @@ import zipfile
 
 this_directory = Path(__file__).parent
 long_description = (this_directory / "README.md").read_text()
+
 
 class build_py(_build_py):
     def run(self):
@@ -121,7 +121,7 @@ class build_py(_build_py):
 
 
 setup(name="bibquery",
-      version="1.1",
+      version="1.1.1",
       description="Creates BibTeX entries from links using BibItNow (https://github.com/Langenscheiss/bibitnow), "
                   "Google Scholar and Selenium.",
       author="Tim Schneider",
