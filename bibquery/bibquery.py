@@ -163,8 +163,7 @@ class BibQuery:
         self.__browser.find_element(By.NAME, "q").send_keys(url)
         self.__browser.find_element(By.NAME, "btnG").click()
 
-        results_element = self.__wait_and_get(self.__browser, By.XPATH, "//div[@id='gs_res_ccl_mid']")
-        results_element.find_element(By.XPATH, "//a[@aria-controls='gs_cit']").click()
+        self.__browser.find_element(By.XPATH, "//a[@aria-controls='gs_cit']").click()
         link = self.__wait_and_get(self.__browser, By.XPATH, "//a[contains(text(), 'BibTeX')]").get_attribute("href")
 
         self.__browser.get(link)
