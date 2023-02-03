@@ -116,6 +116,8 @@ class BibQuery:
         domain = url_parsed.netloc.lower()
         *rest, top = domain.split(".")
         rest_joined = ".".join(rest)
+        if rest_joined.startswith("www."):
+            rest_joined = rest_joined[4:]
         path = url_parsed.path[1:]
         for adjuster in self.__url_specific_adjusters:
             if re.match(adjuster["scheme"], rest_joined):
