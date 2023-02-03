@@ -19,6 +19,9 @@ from webdriver_manager.firefox import GeckoDriverManager
 
 logger = logging.getLogger("BibQuery")
 
+# Disable annoying webdriver manager outputs
+os.environ["WDM_PROGRESS_BAR"] = "0"
+
 
 class BibQueryException(Exception):
     pass
