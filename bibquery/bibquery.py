@@ -54,14 +54,16 @@ class BibQuery:
         self.__cache_path.mkdir(exist_ok=True, parents=True)
 
         # Workaround for the GitHub rate limit issue (https://github.com/SergeyPirogov/webdriver_manager/issues/442)
-        with (self.__cache_path / ".wdm" / "drivers.json").open() as f:
-            drivers_dict = json.load(f)
-        max_cache_age = timedelta(days=1)
         driver_filename = None
-        for name, properties in drivers_dict.items():
-            timestamp = datetime.strptime(properties["timestamp"], "%d/%m/%Y")
-            if timestamp - datetime.today() < max_cache_age:
-                driver_filename = properties["binary_path"]
+        drivers_json_path = self.__cache_path / ".wdm" / "drivers.json"
+        if drivers_json_path.exists(): 
+            with drivers_json_path.open() as f:
+                drivers_dict = json.load(f)
+            max_cache_age = timedelta(days=1)
+            for name, properties in drivers_dict.items():
+                timestamp = datetime.strptime(properties["timestamp"], "%d/%m/%Y")
+                if timestamp - datetime.today() < max_cache_age:
+                    driver_filename = properties["binary_path"]
         if driver_filename is None:
             driver_filename = GeckoDriverManager(path=str(self.__cache_path)).install()
 
