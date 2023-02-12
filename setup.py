@@ -23,7 +23,7 @@ class build_py(_build_py):
                 temp_path = Path(temp)
                 build_lib_path = Path(self.build_lib)
                 res_path = build_lib_path / self.packages[0] / "res"
-                res_path.mkdir(parents=True)
+                res_path.mkdir(parents=True, exist_ok=True)
                 bibitnow_zip_path = temp_path / "bibitnow.xpi"
                 bibitnow_zip_output_path = res_path / "bibitnow_patched.xpi"
                 bibitnow_path = temp_path / "bibitnow"
