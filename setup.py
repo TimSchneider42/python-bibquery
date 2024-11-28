@@ -121,7 +121,7 @@ class build_py(_build_py):
 
 
 setup(name="bibquery",
-      version="1.2.4",
+      version="1.2.5",
       description="Creates BibTeX entries from links using BibItNow (https://github.com/Langenscheiss/bibitnow), "
                   "Google Scholar and Selenium.",
       author="Tim Schneider",
@@ -130,8 +130,8 @@ setup(name="bibquery",
       packages=["bibquery"],
       cmdclass={"build_py": build_py},
       install_requires=[
-          "selenium == 4.7.2",
-          "webdriver-manager == 3.8.5"
+          "selenium == 4.27.1",
+          "webdriver-manager == 4.0.2"
       ],
       long_description=long_description,
       long_description_content_type='text/markdown',

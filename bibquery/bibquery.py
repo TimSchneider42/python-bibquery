@@ -5,6 +5,7 @@ import time
 import traceback
 from datetime import datetime, timedelta
 from pathlib import Path
+from tempfile import TemporaryDirectory
 from typing import Optional
 
 from selenium import webdriver
@@ -16,9 +17,16 @@ from selenium.webdriver.firefox.options import Options
 from selenium.webdriver.remote.webdriver import WebDriver
 from selenium.webdriver.support.expected_conditions import presence_of_element_located
 from selenium.webdriver.support.wait import WebDriverWait
+from webdriver_manager.core.driver_cache import DriverCacheManager
 from webdriver_manager.firefox import GeckoDriverManager
 
 logger = logging.getLogger("BibQuery")
+
+# Delete all SNAP-related environment variables as they mess with selenium
+keys = list(os.environ.keys())
+for key in keys:
+    if key.lower().startswith("snap"):
+        del os.environ[key]
 
 # Disable annoying webdriver manager outputs
 os.environ["WDM_PROGRESS_BAR"] = "0"
@@ -50,13 +58,13 @@ class BibQuery:
 
     def initialize(self):
         options = Options()
-        options.headless = True
+        options.add_argument("--headless")
         self.__cache_path.mkdir(exist_ok=True, parents=True)
 
         # Workaround for the GitHub rate limit issue (https://github.com/SergeyPirogov/webdriver_manager/issues/442)
         driver_filename = None
         drivers_json_path = self.__cache_path / ".wdm" / "drivers.json"
-        if drivers_json_path.exists(): 
+        if drivers_json_path.exists():
             with drivers_json_path.open() as f:
                 drivers_dict = json.load(f)
             max_cache_age = timedelta(days=1)
@@ -65,9 +73,15 @@ class BibQuery:
                 if timestamp - datetime.today() < max_cache_age:
                     driver_filename = properties["binary_path"]
         if driver_filename is None:
-            driver_filename = GeckoDriverManager(path=str(self.__cache_path)).install()
+            cache_manager = DriverCacheManager(self.__cache_path)
+            driver_filename = GeckoDriverManager(cache_manager=cache_manager).install()
 
-        self.__browser = webdriver.Firefox(executable_path=driver_filename, options=options, log_path=os.devnull)
+        self.__tmp_dir = TemporaryDirectory(prefix=str(Path.home() / "bibquery_tmp"))
+        self.__browser = webdriver.Firefox(
+            service=webdriver.FirefoxService(
+                executable_path=driver_filename, log_output=os.devnull,
+                env={**os.environ, "TMPDIR": str(self.__tmp_dir.name)}),
+            options=options)
         self.__browser.install_addon(self.__res_path / "bibitnow_patched.xpi", temporary=True)
         if self.__cookie_path.exists():
             with self.__cookie_path.open() as f:
@@ -79,6 +93,7 @@ class BibQuery:
 
     def close(self):
         self.__browser.close()
+        self.__tmp_dir.cleanup()
 
     def __wait_and_get(self, driver: WebDriver, by: str, value: Optional[str] = None, timeout: float = 60.0):
         WebDriverWait(driver, timeout).until(presence_of_element_located((by, value)))
