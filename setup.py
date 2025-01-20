@@ -23,7 +23,9 @@ class build_py(_build_py):
                 temp_path = Path(temp)
                 build_lib_path = Path(self.build_lib)
                 res_path = build_lib_path / self.packages[0] / "res"
-                res_path.mkdir(parents=True, exist_ok=True)
+                if res_path.exists():
+                    res_path.rmdir()
+                res_path.mkdir(parents=True)
                 bibitnow_zip_path = temp_path / "bibitnow.xpi"
                 bibitnow_zip_output_path = res_path / "bibitnow_patched.xpi"
                 bibitnow_path = temp_path / "bibitnow"
@@ -132,7 +134,8 @@ setup(name="bibquery",
       install_requires=[
           "selenium == 4.27.1",
           "webdriver-manager == 4.0.2",
-          "regex"
+          "regex",
+          "bibtexparser"
       ],
       long_description=long_description,
       long_description_content_type='text/markdown',
