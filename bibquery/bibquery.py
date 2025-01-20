@@ -4,10 +4,13 @@ import re
 import time
 import traceback
 from datetime import datetime, timedelta
+from difflib import SequenceMatcher
 from pathlib import Path
 from tempfile import TemporaryDirectory
 from typing import Optional
 
+import bibtexparser
+from regex import regex
 from selenium import webdriver
 from urllib.parse import urlparse
 import logging
@@ -107,17 +110,46 @@ class BibQuery:
         :return: A string containing the BibTeX for paper in the given URL.
         """
         try:
-            return self.query_bibitnow(url)
+            self.query_regex_search(url)
         except:
-            logger.debug(f"Failed to obtain BibTeX using BibItNow with the following "
+            logger.debug(f"Failed to obtain BibTeX using RegEx-Search with the following "
                          f"exception:\n{traceback.format_exc()}")
             try:
-                logger.debug(f"Trying with Google Scholar...")
-                return self.query_google_scholar(url)
+                return self.query_bibitnow(url)
             except:
-                logger.debug(f"Failed to obtain BibTeX using Google Scholar with the following "
+                logger.debug(f"Failed to obtain BibTeX using BibItNow with the following "
                              f"exception:\n{traceback.format_exc()}")
-                raise BibQueryException(f"Failed to load BibTeX for URL \"{url}\"")
+                try:
+                    logger.debug(f"Trying with Google Scholar...")
+                    return self.query_google_scholar(url)
+                except:
+                    logger.debug(f"Failed to obtain BibTeX using Google Scholar with the following "
+                                 f"exception:\n{traceback.format_exc()}")
+                    raise BibQueryException(f"Failed to load BibTeX for URL \"{url}\"")
+
+    def query_regex_search(self, url: str):
+        if self.__browser is None:
+            raise ValueError("BibQuery has not been initialized or was already closed.")
+        self.__browser.get(url)
+        html = self.__browser.find_element(By.XPATH, "/html/body").get_attribute("innerHTML")
+        bibtex_types = [
+            "article", "book", "booklet", "conference", "inbook", "incollection", "inproceedings", "manual",
+            "mastersthesis", "misc", "phdthesis", "proceedings", "techreport", "unpublished"]
+        candidates = regex.findall(f"(@(?:{'|'.join(bibtex_types)})(?P<yolo>{{(?:[^{{}}]+|(?&yolo))*}}))", html)
+
+        scores = {}
+        for c, *_ in candidates:
+            citation = bibtexparser.loads(c)
+            if len(citation.entries) == 1:
+                title = citation.entries[0].get("title")
+                matcher = SequenceMatcher(None, title, self.__browser.title)
+                largest_block = max(matcher.get_matching_blocks(), key=lambda m: m.size)
+                if (largest_block.size / len(title) > 0.5 or largest_block.size / len(self.__browser.title) > 0.5 and
+                        largest_block.size / len(title) > 0.15):
+                    scores[c] = largest_block.size / len(title)
+        if len(scores) == 0:
+            raise BibQueryException("No BibTeX entries found on the page.")
+        return max(scores, key=scores.get)
 
     def query_bibitnow(self, url: str) -> str:
         """
