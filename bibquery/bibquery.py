@@ -110,7 +110,7 @@ class BibQuery:
         :return: A string containing the BibTeX for paper in the given URL.
         """
         try:
-            self.query_regex_search(url)
+            return self.query_regex_search(url)
         except:
             logger.debug(f"Failed to obtain BibTeX using RegEx-Search with the following "
                          f"exception:\n{traceback.format_exc()}")
